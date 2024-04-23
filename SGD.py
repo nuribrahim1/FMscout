@@ -9,21 +9,23 @@ fname = 'Reports/GKAI.html'
 
 table = pd.read_html(fname, header=0, encoding='utf-8', keep_default_na=False)
 data = table[0]
-data['stan'] = (data['xGP/90']+1)
+data['stan'] = (data['xGP/90']+1)*10
 
 #Model class
 class Model(nn.Module):
     # input layer (13 stats)-->
     # hidden layer-->
     # output
-    def __init__(self, stats = 13, h1 =3, output=1):
+    def __init__(self, stats = 13, h1 =64, h2=64, output=1):
         super().__init__()
         self.l1 = nn.Linear(stats, h1)
-        self.l2 = nn.Linear(h1, output)
+        self.l2 = nn.Linear(h1, h2)
+        self.l3 = nn.Linear(h2, output)
 
     def forward(self, x):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
+        x = F.relu(self.l3(x))
         return (x)
 
 torch.manual_seed(69)
@@ -43,18 +45,18 @@ X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size = 0.4, random
 
 #convert to tensors
 X_train = torch.FloatTensor(X_train)
-X_test = torch.FloatTensor(X_train)
-Y_train = torch.LongTensor(Y_train)
-Y_test = torch.LongTensor(Y_test)
+X_test = torch.FloatTensor(X_test)
+Y_train = torch.FloatTensor(Y_train)
+Y_test = torch.FloatTensor(Y_test)
 
 #error
-loss = nn.SmoothL1Loss()
+loss = nn.MSELoss()
 
 #optimiser
-optimiser = torch.optim.SGD(model.parameters(), lr=0.01)
+optimiser = torch.optim.SGD(model.parameters(), lr=0.00001)
 
 #train model
-epochs = 100
+epochs = 500
 losses = []
 
 for i in range(epochs):
@@ -62,14 +64,12 @@ for i in range(epochs):
     Y_pred = model.forward(X_train)
 
     #error
-    #error = loss(Y_pred, Y_train)
-    #losses.append(error.detetch().numpy())
-    if i%99 == 0:
-        print( Y_pred)
-        print('train')
-        print(Y_train)
+    error = loss(Y_pred, Y_train)
+    losses.append(error.detach().numpy())
+    if i%10 == 0:
+        print(f'epoch {i}, error: {error}')
 
     #propagation
-    #optimiser.zero_grad()
-    #error.backward()
-    #optimiser.step()
+    optimiser.zero_grad()
+    error.backward()
+    optimiser.step()
